@@ -207,15 +207,25 @@ Key Commands
 
 Some of the key Linux commands used or relevant to verification during the project included: 
 cat /etc/os-release 
+
 uname -a 
+
 df -h 
+
 free -h 
+
 sudo apt update 
+
 sudo apt upgrade 
+
 sudo apt -s full-upgrade 
+
 sudo apt full-upgrade 
+
 systemctl --failed
+
 journalctl
+
 Each command served a specific purpose within the overall workflow rather than being executed independently. 
 The general process was: 
 Assess > Prepare > Validate repositories > Simulate > Review > Upgrade > Troubleshoot > Verify > Document
