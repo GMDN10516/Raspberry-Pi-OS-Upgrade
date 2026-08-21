@@ -1,268 +1,528 @@
-# Raspberry-Pi-OS-Upgrade
-Project Overview
+# Raspberry Pi OS Upgrade – Debian 12 Bookworm to Debian 13 Trixie
 
-This project involved upgrading a Raspberry Pi that had been unused for several months and was running an outdated version of Raspberry Pi OS.  The objective was to return the device to a current and operational state while using the Linux command-line interface (CLI) to assess the existing system, prepare for the upgrade, simulate the proposed changes, perform the operating system upgrade and verify the condition of the device afterwards. 
-Rather than treating the task as a simple package update, I approached it as a controlled operating system upgrade.  Before making changes, I collected information about the existing environment, check available system resources and reviewed the package configuration.  Potential changes were simulated before execution, and the system was monitored throughout the upgrade for errors or unexpected behaviour. 
-During troubleshooting, I used official Raspberry Pi and Debian documentation alongside community resources where appropriate.  Information obtained from community sources were treated as supplementary guidance and validated before changes were implemented. 
-The project provided practical experience with Linux administration, Advanced Package Tool (APT) package management, Debian repositories, system monitoring, permissions, service management, troubleshooting and post-change verification. 
+## Project Overview
 
-Objectives
+This project involved upgrading an existing Raspberry Pi from Debian 12 (Bookworm) to Debian 13 (Trixie) using the Linux command line.
 
-The main objectives of the project were to: 
-Assess the existing condition and configuration of the Raspberry Pi.
-Identify the installed Raspberry Pi OS and Debian release.
-Check system resources before making significant changes.
-Confirm that appropriate administrative permissions were available.
-Bring existing packages into an appropriate state before the operating system upgrade.
-Prepare the system repositories for the target release.
-Simulate significant package changes before executing them.
-Upgrade the Raspberry Pi to a newer operating system release.
-Monitor the upgrade process and investigate any warnings or errors.
-Verify the operating system, services and system resources following the upgrade.
-Document the process so that the work could be understood and reproduced.
+The Raspberry Pi had previously been used within an office environment to display system statistics but had been unused for several months. Rather than rebuilding the device from scratch, I used the project as an opportunity to perform an in-place operating system upgrade while developing my practical Linux administration and troubleshooting skills.
 
-Environment
+The project included assessing the existing system, reviewing available packages, changing the configured repositories from Bookworm to Trixie, simulating changes before implementation, completing the operating system upgrade, troubleshooting package conflicts and verifying the condition of the system afterwards.
 
-The project was performed on a physical Raspberry Pi running Raspberry Pi OS, which is based on Debian Linux.  Administration was primarily performed through the command-line interface. 
-The system used APT for package and dependency management, while standard Linux utilities were used to inspect operating system information, storage, memory, processes, services and logs. 
-The target operating system was the Raspberry Pi OS release based on Debian 13 "Trixie"
+A package conflict occurred during the upgrade, meaning that troubleshooting became an important part of the project. I investigated the affected packages, simulated potentially disruptive changes before applying them, repaired the package state and then continued with the upgrade.
 
-Initial System Assessment
+The final system was successfully upgraded to Debian 13 (Trixie), with the upgraded kernel running and no failed systemd services identified during final verification.
 
-Before performing the upgrade, I first established the current condition of the Raspberry Pi.  This was important because an operating system upgrade can make substantial changes to installed packages, dependencies, services and configuration files. 
-The installed operating system was checked using: 
+---
+
+## Project Objectives
+
+The objectives of the project were to:
+
+- Establish the existing operating system and system condition.
+- Identify available package upgrades.
+- Prepare the Raspberry Pi for an operating system upgrade.
+- Change the configured repositories from Bookworm to Trixie.
+- Verify repository configuration before continuing.
+- Simulate package changes where possible before execution.
+- Upgrade the operating system through the command line.
+- Troubleshoot package conflicts encountered during implementation.
+- Verify network and Domain Name System (DNS) connectivity.
+- Perform post-upgrade operating system and service checks.
+- Confirm that the Raspberry Pi was operating successfully following the upgrade.
+
+---
+
+# 1. Initial System Assessment
+
+Before making any changes, I established a baseline of the existing Raspberry Pi environment.
+
+I checked the installed operating system using:
+
+```bash
 cat /etc/os-release
-This displays information including the distribution name, version and Debian codename.  Establishing the starting version provided a baseline that could later be compared with the upgraded system.
-Kernel and system information could also be reviewed using: 
+```
+
+I also checked the running Linux kernel using:
+
+```bash
 uname -a
-This provided additional information about the running Linux kernel and system architecture. 
-I also checked storage utilisation: 
-df -h
-The df command reports filesystem disk usage, while -h displays the values in a human-readable format. Checking available storage before the upgrade reduced the risk of the upgrade failing because the filesystem did not have sufficient free space for downloaded packages and temporary files. 
-Memory utilisation was review using: 
-free -h
-This provided an overview of available and utilised system memory.
-These initial checks created a baseline of the device before any major changes were made 
+```
 
-Administrative Permissions
+The results confirmed that the Raspberry Pi was running **Debian GNU/Linux 12 (Bookworm)** before the upgrade.
 
-Operating system and package-management changes require elevated privileges.  Before attempting the upgrade, I verified that I had the appropriate level of access to perform administrative operations. 
-Where elevated permissions were required, commands were executed using sudo rather than operating permanently as the root user. 
-For example: 
+Establishing this baseline was important because it provided evidence of the original configuration and gave me information that could later be compared against the upgraded system.
+
+<p align="center">
+  <img src="images/01-initial-os-version.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 1 – Initial operating system and kernel verification showing Debian 12 (Bookworm).</em>
+</p>
+
+---
+
+# 2. Package Assessment
+
+Before attempting the operating system upgrade, I refreshed the available package information and reviewed the packages that could be upgraded.
+
+```bash
 sudo apt update
-sudo allows an authorised user to execute a specific command with elevated privileges. Using elevation only when required follows the principle of least privilege and reduces the amount of time spent operating with unrestricted administrative permissions. 
-This was particularly important during the project because package management and repository configuration can significantly affect the operating system if incorrect commands are executed with administrative privileges
+```
 
-Package and Repository Assessment
+I then used:
 
-Before attempting the full operating system upgrade, I reviewed the existing APT configuration and package state. 
-APT obtains information about available software from configured repositories.  The repository configuration therefore needed to be correct before attempting to move the system between Debian releases. 
-The package index was refreshed using: 
+```bash
+apt list --upgradable
+```
+
+This showed that a significant number of packages had newer versions available.
+
+Reviewing the packages before proceeding helped establish the existing condition of the device and gave me an indication of the scale of the changes that would be required.
+
+<p align="center">
+  <img src="images/04-package-check.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 2 – Package assessment showing packages available for upgrade.</em>
+</p>
+
+---
+
+# 3. Repository Configuration
+
+The system was originally configured to retrieve packages for Debian 12 Bookworm. To perform the distribution upgrade, the configured package sources needed to reference Debian 13 Trixie.
+
+Before changing the configuration, I identified the existing Bookworm references within the Advanced Package Tool (APT) source configuration.
+
+I then replaced the relevant Bookworm references with Trixie and checked the configuration afterwards.
+
+The repository configuration was verified using `grep` so that I could confirm that the required entries referenced Trixie before performing the upgrade.
+
+This verification step was important because incorrect repository configuration could result in packages being retrieved from the wrong distribution or leave the system in an inconsistent state.
+
+<p align="center">
+  <img src="images/05-repository-configuration.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 3 – Repository configuration changed from Bookworm to Trixie and checked before continuing.</em>
+</p>
+
+---
+
+# 4. Refreshing Trixie Package Information
+
+Once the repository configuration had been changed, I refreshed APT:
+
+```bash
 sudo apt update
-This does not install new packages.  Instead, it retrieves current package metadata from the configured repositories and allows APT to determine which packages have newer versions available. 
-The output was reviewed for repository errors, unreachable sources or other warnings that could indicate a configuration problem. 
-I also inspected the system's repository configuration to identify references to the existing Debian release.  This was an important step because the operating system could not be safely moved to the target release while APT was still configured to retrieve packages from the previous release repositories. 
-Any repository changes were therefore treated as part of the operating system upgrade rather than as a routine package update. 
+```
 
-Preparing the Existing Installation 
+This caused the Raspberry Pi to retrieve package metadata from the newly configured Trixie repositories.
 
-Before changing the operating system release, the existing installation was brought into an appropriate package state. 
-The standard package upgrade process was used to install available updates for the existing release where required.  This helped reduce the number of outstanding package changes before the larger operating system upgrade. 
-APT package management was used throughout the process because it automatically handles package dependencies and obtains packages from the configured repositories. 
-One of the key lessons from this stage was the different between updating the package index, upgrading installed packages and performing a full operating system release upgrade. 
-apt update refreshes information about available packages, while package upgrade operations install newer versions of software.  Moving between Debian releases is a larger change because the configured repositories and potentially significant parts of the operating system are changed. 
+I checked the output carefully for repository errors before attempting the operating system upgrade.
 
-Preparing for Debian Trixie
+The successful retrieval of package information confirmed that the Raspberry Pi could communicate with the configured Debian and Raspberry Pi repositories and that Trixie packages were available to the system.
 
-The target release for the project was the Raspberry Pi OS version based on Debian 13 "Trixie"
-Before performing the full upgrade, I reviewed the APT source configuration and check for references to the previous Debian release.  The relevant repository configuration was then prepared for the target release. 
-After making the necessary repository changes, I refreshed the package metadata again: 
-sudo apt update
-This caused APT to retrieve package information from the newly configured repositories.  
-The output from this command was reviewed carefully.  Repository errors at this stage could indicate an incorrectly configured source, unsupported repository or networking issue.  Continuing with a full upgrade while repository configuration was incorrect could leave the system with incompatible packages or an incomplete operating system. 
-For this reason, repository validation formed an important checkpoint before the upgrade was allowed to proceed. 
+---
 
-Simulating the Upgrade
+# 5. Simulating the Upgrade
 
-Before executing the full upgrade, I used APT's simulation functionality to review the changes that the package manager intended to make. 
-For example: 
-sudo apt -s full-upgrade
-The -s option instructs APT to simulate the operation rather than actually installing, removing or modifying packages. 
-This allowed me to inspect the proposed upgrade before committing changes to the Raspberry Pi. 
-The simulation provided visibility of packages that would be upgraded, installed or removed and helped identify potential dependency problems before the live operation. 
-I considered this an important risk-reduction step.  A full operating system upgrade can affect a large number of packages simultaneously, and immediately executing the operating would provide less opportunity to identify unexpected behaviour. 
-The simulated output was therefore reviewed before proceeding. 
-This approach follows the same general principle used in production change management: understand the expected impact of a a change before applying it. 
+Before making major package changes, I used APT's simulation functionality to inspect what the package manager intended to do.
 
-Performing the Operating System Upgrade
+For example:
 
-Once the repository configuration had been validated and the simulated upgrade had completed without identifying a blocking issue, I proceeded with the live upgrade. 
-The full upgrade was performed using APT: 
+```bash
+sudo apt-get -s upgrade
+```
+
+The `-s` option performs a simulation rather than actually installing or removing packages.
+
+This allowed me to review the proposed package changes without immediately modifying the system.
+
+<p align="center">
+  <img src="images/upgrade-simulation.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 4 – Simulated package upgrade used to review the proposed changes before execution.</em>
+</p>
+
+I also reviewed the proposed full distribution upgrade before proceeding.
+
+<p align="center">
+  <img src="images/07-upgrade-simulation.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 5 – Review of the packages affected by the planned full operating system upgrade.</em>
+</p>
+
+Simulation became particularly useful later in the project when troubleshooting package conflicts because it allowed me to check the expected effect of removing packages before performing the actual removal.
+
+---
+
+# 6. Executing the Operating System Upgrade
+
+After reviewing the proposed changes, I proceeded with the full upgrade:
+
+```bash
 sudo apt full-upgrade
-Unlike a standard package upgrade, full-upgrade can install or remove packages where necessary to satisfy changed dependencies.  This makes it appropriate for larger package transitions where dependency relationships may have changed. 
-During the upgrade, I monitored the terminal output rather than leaving the process unattended. 
-Particular attention was paid to: 
-dependency warnings 
-package installation failures 
-configuration prompts 
-service restart requests 
-packages being removed 
-repository-related errors
-unexpected termination of upgrade process
-Where configuration prompts were presented, they were reviewed before selection was made rather than accepting changes without understanding their purpose. 
-Monitoring the process was important because the successful execution of the initial command did not guarantee that every package would install successfully. 
+```
 
-Troubleshooting and Research
+Unlike a standard package upgrade, `full-upgrade` can resolve changing dependencies by installing new packages or removing packages where required.
 
-Troubleshooting formed an important part of the project. 
-Operating system upgrades can introduce issues involving repositories, dependencies, configuration files and package compatibility.  Rather than applying unverified commands when an issue occurred, I investigated the behaviour and attempted to understand the cause before making further changes. 
-My troubleshooting process broadly followed the sequence: 
-Identify the problem → collect information → research the behaviour → determine the likely cause → implement a controlled change → verify the result
-Official Raspberry Pi documentation was used for Raspberry Pi-specific information, while Debian documentation was used to better understand the underlying operating system and package-management behaviour. 
-Community resources, including Reddit discussions, were also useful for identifying similar experiences and potential troubleshooting paths.  However, community suggestions were not treated as authoritative instructions.  Where possible, proposed solutions were compared against official documentation or the current system configuration before being implemented. 
-This was particularly valuable because it demonstrated that troubleshooting Linux systems often involves interpreting logs, command output and documentation rather than relying on a single predetermined procedure. 
+Because this was a major distribution upgrade, I monitored the terminal output throughout the process rather than leaving the upgrade unattended.
 
-System Monitoring and Diagnostics
+<p align="center">
+  <img src="images/08-full-upgrade.png" width="800">
+</p>
 
-Command-line diagnostic tools were used throughout the project to understand the state of the Raspberry Pi.
-Storage could be reviewed using: 
-df -h
-Memory could be reviewed using: 
-free -h
-Running processes and resource utilisation could be investigated using Linux process-monitoring utilities. 
-Service state was also important following the upgrade because an operating system can boot successfully while individual services have failed. 
-Failed systemd services could be identified using: 
-systemctl --failed
-systemctl interacts with systemd, the service and system manager used by modern Debian-based Linux distributions. 
-System logs could also be investigated using: 
-journalctl
-The system journal provides information generated by the kernel, services and other system components.  This makes it useful when investigating failures that are not immediately explained by terminal output. 
-Using these tools provided greater visibility of the operating system than relying only on whether the graphical interface appeared to function. 
+<p align="center">
+  <em>Figure 6 – Execution of the full operating system upgrade.</em>
+</p>
 
-Post-Upgrade Verification
+During this process, the upgrade encountered a package installation error.
 
-Completing the APT upgrade process was not considered sufficient evidence that the project had succeeded.  I therefore performed post-upgrade checks to verify the state of the Raspberry Pi. 
-The operating system release was checked again: 
-cat /etc/os-release
-This allowed the installed release to be compared with the baseline collected at the beginning of the project. 
-Kernel and system information could also be checked again: 
+---
+
+# 7. Troubleshooting the Package Conflict
+
+## Identifying the Error
+
+During the upgrade, `dpkg` returned an error while processing a package.
+
+The output included:
+
+```text
+Sub-process /usr/bin/dpkg returned an error code (1)
+```
+
+Rather than repeatedly running the upgrade command, I investigated the package state to determine what was preventing the installation from completing.
+
+<p align="center">
+  <img src="images/upgrade-error.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 7 – Package processing error encountered during the Trixie upgrade.</em>
+</p>
+
+This became the main troubleshooting stage of the project.
+
+---
+
+## Investigating LXPanel Packages
+
+The investigation identified packages associated with LXPanel and its plugins as part of the conflict.
+
+I used APT package information to compare installed and candidate versions, including:
+
+```bash
+apt-cache policy lxplug-batt lxpanel lxpanel-data
+```
+
+This allowed me to see which versions were currently installed and which versions were being offered by the Trixie repositories.
+
+<p align="center">
+  <img src="images/lxpanel-files.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 8 – Investigation of installed and candidate LXPanel-related package versions.</em>
+</p>
+
+The results helped identify legacy Raspberry Pi desktop components that were interfering with the newer package set.
+
+---
+
+# 8. Simulating Package Removal
+
+I did not immediately remove the suspected package.
+
+Instead, I first simulated the removal using `dpkg`:
+
+```bash
+sudo dpkg --no-act --remove lxplug-batt
+```
+
+The `--no-act` option allowed me to see what `dpkg` intended to do without making the change.
+
+<p align="center">
+  <img src="images/simulation-lxbat-removal.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 9 – Simulating removal of the conflicting lxplug-batt package before making the change.</em>
+</p>
+
+I also verified the proposed action separately before executing the removal.
+
+<p align="center">
+  <img src="images/08.2-troubleshooting.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 10 – Verification of the proposed lxplug-batt package removal.</em>
+</p>
+
+Using simulation first reduced the risk of making unnecessary changes while troubleshooting.
+
+---
+
+# 9. Removing the Conflicting Packages
+
+Once I had reviewed the simulated result, I proceeded with removal of the conflicting package:
+
+```bash
+sudo dpkg --remove lxplug-batt
+```
+
+<p align="center">
+  <img src="images/08-troubleshooting.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 11 – Removal of the conflicting lxplug-batt package.</em>
+</p>
+
+Additional LXPanel plugin components were also investigated where they interfered with the upgrade.
+
+Again, I used a simulation before performing the actual change.
+
+For example:
+
+```bash
+sudo dpkg --no-act --remove lxplug-cpu
+```
+
+followed by the required removal after checking the expected result.
+
+<p align="center">
+  <img src="images/lxplug-removal.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 12 – Removal of an additional conflicting LXPanel plugin component.</em>
+</p>
+
+This part of the project reinforced the importance of understanding what a package-management command will change before executing it, particularly when resolving dependency problems during an operating system upgrade.
+
+---
+
+# 10. Repairing the Package State
+
+After removing the conflicting packages, I used APT's broken dependency repair functionality:
+
+```bash
+sudo apt --fix-broken install
+```
+
+This instructed APT to attempt to correct the incomplete dependency state created during the interrupted upgrade.
+
+I reviewed the packages that APT proposed to install, upgrade or remove before allowing the repair process to continue.
+
+<p align="center">
+  <img src="images/broken-install-fix.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 13 – Repairing the package state using APT after resolving the package conflict.</em>
+</p>
+
+Once the package state had been repaired, I could continue with the remaining upgrade process.
+
+---
+
+# 11. Network and DNS Verification
+
+Network connectivity was also checked as part of the troubleshooting and verification process.
+
+I tested connectivity to a hostname using:
+
+```bash
+ping -c 4 raspberrypi.com
+```
+
+The hostname successfully resolved to an IP address and all four Internet Control Message Protocol (ICMP) echo requests received responses.
+
+The test reported **0% packet loss**, confirming that the Raspberry Pi had working network connectivity and that Domain Name System (DNS) resolution was functioning.
+
+<p align="center">
+  <img src="images/DNS-test.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 14 – Successful hostname resolution and network connectivity test with 0% packet loss.</em>
+</p>
+
+This was useful because successful IP connectivity alone would not necessarily prove that DNS resolution was working.
+
+---
+
+# 12. Post-Upgrade Repository Verification
+
+Following the upgrade and troubleshooting process, I refreshed the package information again:
+
+```bash
+sudo apt update
+```
+
+The system successfully communicated with the configured Trixie repositories and retrieved the relevant package information.
+
+<p align="center">
+  <img src="images/10-post-upgrade-verification.png" width="800">
+</p>
+
+<p align="center">
+  <em>Figure 15 – Post-upgrade package repository verification using the Trixie repositories.</em>
+</p>
+
+This confirmed that the system remained configured to use the intended repositories after the upgrade.
+
+---
+
+# 13. Final System Verification
+
+After completing the upgrade, I performed final checks rather than assuming that a completed package installation meant the operating system was healthy.
+
+I checked the running kernel:
+
+```bash
 uname -a
-Storage and memory were reviewed: 
-df -h 
-free -h
-Failed services were checked using: 
+```
+
+I then verified the operating system:
+
+```bash
+cat /etc/os-release
+```
+
+The system now reported:
+
+```text
+Debian GNU/Linux 13 (trixie)
+```
+
+I also checked for failed systemd services:
+
+```bash
 systemctl --failed
-Package-management commands were also used where appropriate to confirm that the system was no longer reporting unresolved package operations. 
-The purpose of these checks was to validate several layers of the system rather than assuming that a successful reboot meant the upgrade had completed correctly.
+```
 
-Before and After
+The result showed:
 
-Area
-Before Upgrade
-After Upgrade
-Operating system
-Previous Raspberry Pi OS release
-Raspberry Pi OS based on Debian Trixie
-Package state
-Required maintenance and upgrade
-Packages upgraded
-Repository configuration
-Previous release repositories
-Target release repositories
-Storage
-Checked before upgrade
-Rechecked after upgrade
-Memory
-Baseline recorded
-Rechecked after upgrade
-Services
-Existing state assessed
-Failed services checked
-System logs
-Available for investigation
-Reviewed where required
-Device state
-Had been unused for several months
-Upgraded and verified
-This comparison demonstrates why post-change validation was necessary.  The objective was not simply to execute an upgrade command but to move the Raspberry Pi from its previous state to a known and verified operating state. 
+```text
+0 loaded units listed.
+```
 
-Security and Risk Considerations
+This confirmed that no failed systemd units were detected during the final verification.
 
-Although this was a Raspberry Pi rather than a large production server, I applied several principles that would also be relevant when administering production Linux infrastructure. 
-Least Privilege
-Administrative permissions were used only when required. sudo was used for privileged operations instead of working permanently within a root shell. 
-Change Validation
-Potential package changes were simulated before the full upgrade. This provided an opportunity to identify unexpected package behaviour before changes were committed. 
-Repository Integrity
-Repository configuration was reviewed before the upgrade.  Package sources are an important security consideration because the operating system relies on them when retrieving software. 
-Resource Validation
-Available storage and other system resources were checked before beginning the upgrade to reduce the risk of failure partway through the operation. 
-Trusted Documentation
-Official documentation was prioritised when researching command and troubleshooting problems.  Community resources were used as additional information rather than being followed without verification. 
-Post-Change Monitoring
-The system was checked after the upgrade rather than assuming that  completion of the package-management process meant every component was operating correctly. 
-These controls reduced the likelihood of avoidable errors and made the upgrade process more controlled and repeatable.
+<p align="center">
+  <img src="images/11-completed-upgrade.png" width="800">
+</p>
 
-Key Commands
+<p align="center">
+  <em>Figure 16 – Final verification showing Debian 13 (Trixie), the upgraded Linux kernel and zero failed systemd services.</em>
+</p>
 
-Some of the key Linux commands used or relevant to verification during the project included: 
-cat /etc/os-release 
+The comparison between the initial and final system state provided clear confirmation that the operating system upgrade had been completed successfully.
 
-uname -a 
+---
 
-df -h 
+# 14. Troubleshooting Approach
 
-free -h 
+The most valuable part of this project was the troubleshooting required when the upgrade did not complete without errors.
 
-sudo apt update 
+Rather than treating the error as a reason to rebuild the Raspberry Pi, I worked through the problem by:
 
-sudo apt upgrade 
+1. Identifying the package-processing error.
+2. Reviewing the affected package versions.
+3. Identifying conflicting LXPanel-related packages.
+4. Simulating package removal before making changes.
+5. Removing the conflicting packages.
+6. Repairing the broken package state.
+7. Continuing the upgrade process.
+8. Testing network and DNS connectivity.
+9. Refreshing package information.
+10. Verifying the final operating system and service state.
 
-sudo apt -s full-upgrade 
+This changed the project from a straightforward operating system upgrade into a more realistic Linux troubleshooting exercise.
 
-sudo apt full-upgrade 
+---
 
-systemctl --failed
+# 15. Key Commands Used
 
-journalctl
+| Command | Purpose |
+|---|---|
+| `cat /etc/os-release` | Display operating system release information |
+| `uname -a` | Display kernel and system information |
+| `sudo apt update` | Refresh package repository information |
+| `apt list --upgradable` | Display packages with available upgrades |
+| `grep` | Search repository configuration for Bookworm/Trixie references |
+| `sudo apt-get -s upgrade` | Simulate a package upgrade |
+| `sudo apt full-upgrade` | Perform the full package/distribution upgrade |
+| `apt-cache policy` | Compare installed and candidate package versions |
+| `dpkg -S` | Identify which package owns a particular file |
+| `sudo dpkg --no-act --remove` | Simulate removal of a package |
+| `sudo dpkg --remove` | Remove a conflicting package |
+| `sudo apt --fix-broken install` | Repair broken package dependencies |
+| `ping -c 4 raspberrypi.com` | Test DNS resolution and network connectivity |
+| `systemctl --failed` | Identify failed systemd services |
 
-Each command served a specific purpose within the overall workflow rather than being executed independently. 
-The general process was: 
-Assess > Prepare > Validate repositories > Simulate > Review > Upgrade > Troubleshoot > Verify > Document
-This workflow is one of the most important outcomes of the project because it provides a repeatable approach to making significant changes to a Linux system. 
+---
 
-Skills Demonstrated
+# 16. Skills Developed
 
-This project provided practical experience in:
-Linux command-line administration 
-Debian and Raspberry Pi OS 
-APT package management 
-Linux repository configuration 
-Operating system upgrades 
-Linux permissions and sudo 
-Package dependency management 
-systemd service management 
-System resource monitoring
-Linux log investigation 
-Technical troubleshooting 
-Technical research and documentation 
-Change planning 
-Risk reduction 
-Post-change verification 
-This project also strengthened my understanding of the difference between executing technical commands and administering a system in a controlled manner.  Knowing the purpose, expected result and potential impact of a command is as important as knowing the command itself. 
+This project developed my practical understanding of:
 
-Lessons Learned
+- Linux operating system administration
+- Debian and Raspberry Pi OS
+- Command-line administration
+- APT package management
+- `dpkg` package management
+- Linux package dependencies
+- Repository configuration
+- Distribution upgrades
+- Upgrade simulation and change validation
+- Linux troubleshooting
+- DNS and network testing
+- systemd service verification
+- Technical documentation
+- Post-change verification
+- Risk reduction when making system changes
 
-One of the main lessons from the project was the important of establishing a baseline before making significant system changes.  Without recoding the original operating system, repository configuration and system condition, it would have been more difficult to demonstrate what had changed or determine whether unexpected behaviour had been introduced. 
-The upgrade simulation was also particularly valuable.  Using APT's simulation functionality provided visibility of the proposed package changes before they were applied and reinforced the important of validating potentially disruptive changes before execution. 
-The project also improved my confidence when troubleshooting Linux.  Instead of treating terminal errors as isolated problems, I increasingly used command output, system information, documentation and logs together to understand what the operating system was doing. 
-Another important lesson was the value of post-change verification.  An upgrade process completing without a visible error does not necessarily mean that every service or component is functioning correctly.  Checking the operating system version, system resources, services and package state provided stronger evidence that the change had been successful. 
-In a production environment, I would extend this process further by implementing a formal backup and rollback plan, documenting service dependencies, defining an approved maintenance window, testing application functionality and establishing clear success and rollback criteria before beginning the upgrade. 
+---
 
-Conclusion
+# 17. Lessons Learned
 
-The project successfully demonstrated the process of assessing, preparing, upgrading and validating a Raspberry Pi using Linux command-line administration. 
-The Raspberry Pi was treated as a system requiring a controlled change rather than simply a device on which to run upgrade commands.  The existing environment was assessed, package and repository configuration was reviewed, significant changes were simulated before execution, the operating system upgrade was monitored, problems were investigated using documentation and diagnostic tools, and the resulting system was verified afterwards. 
-The project strengthened my practical understanding of Linux administration and provided experience with APT, Debian repositories, permissions, service management, system monitoring and troubleshooting. 
-Most importantly, it reinforced a repeatable approach to infrastructure changes: 
-understand the existing environment, assess the risk, validate the proposed change, execute it carefully, troubleshoot using evidence and verify the final state.
+One of the main lessons from the project was that an operating system upgrade involves considerably more than running a single upgrade command.
+
+Repository configuration, package dependencies, available disk space, network connectivity and existing software can all affect whether an upgrade completes successfully.
+
+The package conflict was particularly useful from a learning perspective. Instead of immediately removing packages when an error appeared, I investigated the installed and candidate versions and used simulation commands before making changes. This gave me greater confidence that the proposed remediation was appropriate.
+
+I also gained a better understanding of the relationship between APT and `dpkg`. APT provides higher-level package and dependency management, whereas `dpkg` operates directly on Debian packages. During troubleshooting, both were useful for understanding and repairing the package state.
+
+The project also reinforced the importance of verification. A command completing without an obvious error does not necessarily prove that an operating system is healthy. Checking the final OS version, running kernel, repositories, connectivity and failed services provided much stronger evidence that the upgrade had been successful.
+
+---
+
+# Project Outcome
+
+The Raspberry Pi was successfully upgraded from **Debian 12 (Bookworm) to Debian 13 (Trixie)**.
+
+The upgrade encountered package conflicts involving legacy LXPanel-related components, which required additional investigation and remediation. The affected packages were investigated, removal was simulated before implementation, the broken package state was repaired and the upgrade was successfully completed.
+
+Final verification confirmed:
+
+- **Debian GNU/Linux 13 (Trixie)** was installed.
+- The Raspberry Pi was running the upgraded Linux kernel.
+- Trixie repositories were accessible.
+- Network connectivity was operational.
+- DNS resolution was operational.
+- No failed systemd services were detected.
+
+The project provided practical experience of completing and troubleshooting an in-place Linux distribution upgrade rather than simply rebuilding the device when problems occurred.
